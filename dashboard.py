@@ -54,13 +54,29 @@ if arquivo_upload:
 
             st.subheader("Resumo Financeiro")
             # Divide a tela em 3 colunas
+            st.write("### 💰 Resumo Financeiro")
+
+            # 1. Calculamos os totais pegando da base já processada
+            total_premio = df_final['R$ PRÊMIO LÍQUIDO'].sum()
+            total_comissao = df_final['R$ COMISSÃO'].sum()
+            total_lucro = df_final['Lucro Líquido Pago'].sum()
+            total_imposto = df_final['Imposto'].sum()
+            total_a12 = df_final['A12'].sum()
+            total_sol = df_final['SOL'].sum()
+
+            # 2. Criamos a PRIMEIRA linha de Cards (Os dados principais)
             col1, col2, col3 = st.columns(3)
-            col1.metric("💰 Total Prêmio Líquido", f"R$ {formata_br(total_premio)}")
-            col2.metric("💸 Total Comissão", f"R$ {formata_br(total_comissao)}")
-            col3.metric("🎯 % Média de Comissão", f"{formata_br(taxa_media)}%")
+            col1.metric("Total Prêmio Líquido", f"R$ {total_premio:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            col2.metric("Total Comissão Bruta", f"R$ {total_comissao:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            col3.metric("Lucro Líquido Pago", f"R$ {total_lucro:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-            st.divider() # Linha divisória para ficar elegante
+            # 3. Criamos a SEGUNDA linha de Cards (Os repasses e descontos)
+            col4, col5, col6 = st.columns(3)
+            col4.metric("Total de Impostos Retidos", f"R$ {total_imposto:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            col5.metric("Repasse A12", f"R$ {total_a12:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+            col6.metric("Repasse SOL", f"R$ {total_sol:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
+            st.markdown("---") # Linha divisória para separar da tabela
             # ---------------------------------------------------------
             # NOVIDADE 2: GRÁFICO E TABELA LADO A LADO
             # ---------------------------------------------------------
