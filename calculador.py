@@ -1,36 +1,42 @@
-# calculador.py
 import pandas as pd
+import numpy as np
 
 def calcular_repasses_corretagem(df_entrada):
-    """
-    Recebe um DataFrame limpo e aplica as regras de comissionamento da corretora.
-    """
-    # Cria uma cópia para não alterar os dados originais do filtro
     df = df_entrada.copy()
 
-    # Constantes
-    TAXA_ADICIONAL = 0.03    
-    TAXA_A12 = 0.006         
-    ALIQUOTA_IMPOSTO = 0.19  
+    # 1. Cálculo Base
+    df['Adicional Bruto'] = df['R$ PRÊMIO LÍQUIDO'] * 0.03
+    
+    # Identifica quem é M2
+    # Procura 'M2' na coluna CORRETOR ou (|) na coluna CORRETORA PRINCIPAL
+    eh_grupo_m2 = (
+        df['CORRETOR'].str.contains('M2', case=False, na=False) | 
+        df['CORRETORA PRINCIPAL'].str.contains('M2', case=False, na=False)
+    )
 
-    # Cálculos
-    df['Adicional Bruto'] = df['R$ PRÊMIO LÍQUIDO'] * TAXA_ADICIONAL
-    df['80% do Adicional'] = df['Adicional Bruto'] * 0.80
-    df['A12'] = df['R$ PRÊMIO LÍQUIDO'] * TAXA_A12
-    df['SOL'] = df['A12'] / 3
-    df['Valor p/ Corretora'] = df['80% do Adicional'] - df['SOL']
-    df['Imposto'] = df['Valor p/ Corretora'] * ALIQUOTA_IMPOSTO
+    # Se for M2, a A12 ganha 70% (0.70). Se for Padrão, ganha 20% (0.20)
+    taxa_a12 = np.where(eh_grupo_m2, 0.70, 0.20)
+    
+    # Se for M2, a Corretora fica com a base de 30% (0.30). Se for Padrão, 80% (0.80)
+    taxa_corretora = np.where(eh_grupo_m2, 0.30, 0.80)
+    
+    # 3. Aplica as fatias
+    df['A12'] = df['Adicional Bruto'] * taxa_a12
+    df['Base Corretora'] = df['Adicional Bruto'] * taxa_corretora
+    
+    # O SOL é sempre fixo: 1/3 da taxa padrão de 20% da A12
+    df['SOL'] = (df['Adicional Bruto'] * 0.20) / 3
+    
+    # 4. Descontos e Impostos
+    # A Corretora paga o SOL saindo da fatia dela
+    df['Valor p/ Corretora'] = df['Base Corretora'] - df['SOL']
+    
+   # ... (todo o cálculo de taxas continua igualzinho) ...
+    
+    df['Imposto'] = df['Valor p/ Corretora'] * 0.19
     df['Lucro Líquido Pago'] = df['Valor p/ Corretora'] - df['Imposto']
 
-    # Arredondamento
-    #colunas_financeiras = [
-        #'R$ PRÊMIO LÍQUIDO', 'R$ COMISSÃO', 'Adicional Bruto', '80% do Adicional', 
-        #'A12', 'SOL', 'Valor p/ Corretora', 'Imposto', 'Lucro Líquido Pago'
-    #]
-    
-    # Garante que só vai arredondar as colunas que realmente existem no df
-    #colunas_presentes = [col for col in colunas_financeiras if col in df.columns]
-    #df[colunas_presentes] = df[colunas_presentes].round(2)
+    # Removemos colunas intermediárias para o Dashboard ficar limpo
+    df = df.drop(columns=['Base Corretora'])
 
-   
-    return df.fillna('')    
+    return df.fillna('')
