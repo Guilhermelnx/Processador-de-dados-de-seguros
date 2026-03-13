@@ -1,6 +1,7 @@
 import pandas as pd
-from calculador import calcular_repasses_corretagem
-from leitores import LeitorSeguradora
+from src.core.calculador import calcular_repasses_corretagem
+from src.modules.leitores import LeitorSeguradora
+
 
 class ProcessadorDados:
     def __init__(self, arquivo_upload, nome_aba, leitor_estrategia: LeitorSeguradora):

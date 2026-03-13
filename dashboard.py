@@ -1,8 +1,9 @@
 import streamlit as st
-from processador import ProcessadorDados
 from decimal import Decimal, ROUND_HALF_UP
-from exportador import gerar_excel_memoria
-from leitores import LeitorAllianz, LeitorSeguradoraNova
+from src.modules.processador import ProcessadorDados
+from src.modules.leitores import LeitorAllianz, LeitorSeguradoraNova
+from src.utils.exportador import gerar_excel_memoria
+
 
 st.set_page_config(layout="wide", page_title="App A12 - Comissões")
 st.title("Análise de Comissões e Prêmios 📊")
