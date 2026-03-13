@@ -1,7 +1,7 @@
 import streamlit as st
 from decimal import Decimal, ROUND_HALF_UP
 from src.modules.processador import ProcessadorDados
-from src.modules.leitores import LeitorAllianz, LeitorSeguradoraNova
+from src.modules.leitores import LeitorAllianz, LeitorBradescoSaude
 from src.utils.exportador import gerar_excel_memoria
 
 
@@ -16,18 +16,17 @@ st.sidebar.title("1. Importar Dados 📁")
 # 1. Botão de Upload
 arquivo_upload = st.sidebar.file_uploader("Suba a planilha de apuração", type=["xlsx", "xls"])
 
-# 2. Menu da Seguradora (Fica solto na sidebar, logo abaixo do upload)
+
 seguradora_escolhida = st.sidebar.selectbox(
-    "Formato da Planilha:",
-    ["Allianz (Padrão)", "Outra Seguradora"]
+    "Selecione a Seguradora",
+    ["Allianz", "Bradesco Saúde"] 
 )
 
-# 3. O Python decide silenciosamente qual classe usar baseado no menu
-if seguradora_escolhida == "Allianz (Padrão)":
-    estrategia_leitura = LeitorAllianz()
-else:
-    estrategia_leitura = LeitorSeguradoraNova()
-
+# A regra de qual classe usar
+if seguradora_escolhida == "Allianz":
+    leitor = LeitorAllianz()
+elif seguradora_escolhida == "Bradesco Saúde":
+    leitor = LeitorBradescoSaude()
 # 4. A barreira de proteção: Só tenta ler abas e processar SE tiver arquivo
 if arquivo_upload is not None:
     # Pega as abas do arquivo
@@ -35,13 +34,13 @@ if arquivo_upload is not None:
     aba_selecionada = st.sidebar.selectbox("Selecione a aba correta:", abas)
     
     # 5. O PROCESSADOR NASCE AQUI (com os 3 argumentos!)
-    processador = ProcessadorDados(arquivo_upload, aba_selecionada, estrategia_leitura)
+    processador = ProcessadorDados(arquivo_upload, aba_selecionada, leitor)
+    #if processador.df_bruto is not None and not processador.df_bruto.empty:
     
-    # ==========================================
-    # A partir daqui continua o seu código normal (Filtros, botão de download, etc)
-    # Lembrando que tudo isso deve ficar COM INDENTAÇÃO dentro desse "if arquivo_upload is not None:"
-    # ...
-    
+        # 🚨 ADICIONE ESTAS DUAS LINHAS DE RAIO-X AQUI 🚨
+       # st.warning("🧐 RAIO-X DOS DADOS (APENAS BRASICOR):")
+        #st.dataframe(processador.df_bruto[processador.df_bruto['CORRETORA PRINCIPAL'] == 'BRASICOR'])
+        
     if not processador.base_valida():
         st.error("⚠️ As colunas necessárias não foram encontradas nesta aba.")
     else:
@@ -126,16 +125,6 @@ if arquivo_upload is not None:
                 # 1. Filtramos apenas as colunas que o financeiro pediu, na ordem certa
                 colunas_para_exibir = ['CORRETORA PRINCIPAL', 'CORRETOR', 'R$ COMISSÃO', 'Lucro Líquido Pago']
                 df_exibicao = df_final[colunas_para_exibir].copy()
-
-                # 2. Renomeamos as colunas para a nomenclatura nova
-                df_exibicao = df_exibicao.rename(columns={
-                    'R$ COMISSÃO': 'Comissão Bruta',
-                    'Lucro Líquido Pago': 'Comissão Líquida'
-                })
-
-                # 3. Arredondamos os números no Pandas para o Excel baixar certinho (2 casas)
-                df_exibicao['Comissão Bruta'] = df_exibicao['Comissão Bruta'].round(2)
-                df_exibicao['Comissão Líquida'] = df_exibicao['Comissão Líquida'].round(2)
 
     with col_tabela:
         st.subheader("📥 Exportação de Dados")
