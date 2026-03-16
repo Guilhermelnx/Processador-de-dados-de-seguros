@@ -4,39 +4,56 @@ import numpy as np
 def calcular_repasses_corretagem(df_entrada):
     df = df_entrada.copy()
 
-    # 1. Cálculo Base
-    df['Adicional Bruto'] = df['R$ PRÊMIO LÍQUIDO'] * 0.03
+    comissao_real = df['R$ COMISSÃO']
     
-    # Identifica quem é M2
-    # Procura 'M2' na coluna CORRETOR ou (|) na coluna CORRETORA PRINCIPAL
+    # ==========================================
+    # 1. REGRA PADRÃO (Para 99% das corretoras)
+    # ==========================================
+    df['Repasse SOL'] = (comissao_real * 0.20) / 3
+    df['Repasse A12'] = comissao_real * 0.20
+    df['Base Corretora'] = comissao_real * 0.80
+    
+    # ==========================================
+    # 2. IDENTIFICAÇÃO DOS "DIFERENTÕES"
+    # ==========================================
     eh_grupo_m2 = (
         df['CORRETOR'].str.contains('M2', case=False, na=False) | 
         df['CORRETORA PRINCIPAL'].str.contains('M2', case=False, na=False)
     )
+    
+    # Procura pela palavra exata PARTNER A12+ (O \+ é para o Python entender o sinal de mais)
+    eh_partner_a12 = (
+        df['CORRETOR'].str.contains('PARTNER A12\+', case=False, na=False) | 
+        df['CORRETORA PRINCIPAL'].str.contains('PARTNER A12\+', case=False, na=False)
+    )
 
-    # Se for M2, a A12 ganha 70% (0.70). Se for Padrão, ganha 20% (0.20)
-    taxa_a12 = np.where(eh_grupo_m2, 0.70, 0.20)
+    # ==========================================
+    # 3. APLICAÇÃO DAS EXCEÇÕES
+    # ==========================================
+    # Exceção A: Grupo M2
+    df.loc[eh_grupo_m2, 'Repasse A12'] = comissao_real * 0.70
+    df.loc[eh_grupo_m2, 'Base Corretora'] = comissao_real * 0.30
     
-    # Se for M2, a Corretora fica com a base de 30% (0.30). Se for Padrão, 80% (0.80)
-    taxa_corretora = np.where(eh_grupo_m2, 0.30, 0.80)
-    
-    # 3. Aplica as fatias
-    df['A12'] = df['Adicional Bruto'] * taxa_a12
-    df['Base Corretora'] = df['Adicional Bruto'] * taxa_corretora
-    
-    # O SOL é sempre fixo: 1/3 da taxa padrão de 20% da A12
-    df['SOL'] = (df['Adicional Bruto'] * 0.20) / 3
-    
-    # 4. Descontos e Impostos
-    # A Corretora paga o SOL saindo da fatia dela
-    df['Valor p/ Corretora'] = df['Base Corretora'] - df['SOL']
-    
-   # ... (todo o cálculo de taxas continua igualzinho) ...
-    
-    df['Imposto'] = df['Valor p/ Corretora'] * 0.19
-    df['Lucro Líquido Pago'] = df['Valor p/ Corretora'] - df['Imposto']
+    # Exceção B: PARTNER A12+ (A exata fórmula do Excel que você printou)
+    # Primeiro o SOL (Comissão dividida por 12)
+    df.loc[eh_partner_a12, 'Repasse SOL'] = comissao_real / 12
+    # Depois a A12 (Comissão - SOL)
+    df.loc[eh_partner_a12, 'Repasse A12'] = comissao_real - df.loc[eh_partner_a12, 'Repasse SOL']
+    # Corretora fica com zero
+    df.loc[eh_partner_a12, 'Base Corretora'] = 0
 
-    # Removemos colunas intermediárias para o Dashboard ficar limpo
-    df = df.drop(columns=['Base Corretora'])
+    # ==========================================
+    # 4. CÁLCULO FINAL DE IMPOSTOS E LUCRO
+    # ==========================================
+    df['Valor p/ Corretora'] = df['Base Corretora'] - df['Repasse SOL']
+    
+    # Trava de segurança: Se o valor da corretora for negativo (como na PARTNER A12+ que zerou), 
+    # a gente não cobra imposto negativo (que daria dinheiro de volta do governo kkkk)
+    df['Valor p/ Corretora'] = df['Valor p/ Corretora'].clip(lower=0)
+    
+    df['Impostos Retidos'] = df['Valor p/ Corretora'] * 0.19
+    df['Lucro Líquido Pago'] = df['Valor p/ Corretora'] - df['Impostos Retidos']
 
-    return df.fillna('')
+    df = df.drop(columns=['Base Corretora', 'Valor p/ Corretora'])
+
+    return df.fillna(0)
