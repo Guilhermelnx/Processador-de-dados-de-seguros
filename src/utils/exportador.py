@@ -14,18 +14,21 @@ def gerar_excel_pagamentos(df_exibicao: pd.DataFrame) -> bytes:
     """Gera um relatório de pagamentos agrupado estilo Tabela Dinâmica."""
     output = io.BytesIO()
     
+    # As colunas financeiras na ordem lógica da conta
+    colunas_valores = ['Comissão Bruta', 'Repasse A12', 'Repasse SOL', 'Impostos', 'Comissão Líquida']
+    
     # Recriando a Tabela Dinâmica
     tabela_dinamica = pd.pivot_table(
         df_exibicao,
         index=['CORRETORA PRINCIPAL', 'CORRETOR'],
-        values=['Comissão Bruta', 'Comissão Líquida'],
+        values=colunas_valores,
         aggfunc='sum',
         margins=True, 
         margins_name='Total Geral'
     )
     
-    # Ordena as colunas
-    tabela_dinamica = tabela_dinamica[['Comissão Bruta', 'Comissão Líquida']]
+    # Força a ordem exata das colunas para contar a historinha do desconto pro financeiro
+    tabela_dinamica = tabela_dinamica[colunas_valores]
     
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         tabela_dinamica.to_excel(writer, sheet_name='Resumo Pagamentos')
@@ -38,6 +41,7 @@ def gerar_excel_pagamentos(df_exibicao: pd.DataFrame) -> bytes:
         
         worksheet_resumo.set_column('A:A', 30) 
         worksheet_resumo.set_column('B:B', 50) 
-        worksheet_resumo.set_column('C:D', 20, formato_moeda) 
+        # C:G cobre as 5 colunas de dinheiro (Bruta, A12, SOL, Imposto, Liquida)
+        worksheet_resumo.set_column('C:G', 18, formato_moeda) 
         
     return output.getvalue()

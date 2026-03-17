@@ -114,18 +114,28 @@ if arquivo_upload is not None:
                     st.subheader("📥 Exportação de Dados")
                     st.write("Baixe a lista completa de comissões líquidas processadas e prontas para o pagamento.")
                     
-                    colunas_para_exibir = ['CORRETORA PRINCIPAL', 'CORRETOR', 'R$ COMISSÃO', 'Lucro Líquido Pago']
+                    # 1. Pegamos todas as fatias do bolo agora!
+                    colunas_para_exibir = [
+                        'CORRETORA PRINCIPAL', 'CORRETOR', 
+                        'R$ COMISSÃO', 'Repasse A12', 'Repasse SOL', 'Impostos Retidos', 'Lucro Líquido Pago'
+                    ]
                     df_exibicao = df_final[colunas_para_exibir].copy()
 
+                    # 2. Dando nomes amigáveis para o Financeiro ler no Excel
                     df_exibicao = df_exibicao.rename(columns={
                         'R$ COMISSÃO': 'Comissão Bruta',
+                        'Impostos Retidos': 'Impostos',
                         'Lucro Líquido Pago': 'Comissão Líquida'
                     })
 
-                    # O BOTÃO NOVO AQUI:
+                    # 3. Arredondando tudo pra 2 casas decimais (Cravando os centavos)
+                    colunas_dinheiro = ['Comissão Bruta', 'Repasse A12', 'Repasse SOL', 'Impostos', 'Comissão Líquida']
+                    for col in colunas_dinheiro:
+                        df_exibicao[col] = df_exibicao[col].round(2)
+
                     st.download_button(
                         label="Baixar Relatório de Pagamentos (Excel)",
-                        data=gerar_excel_pagamentos(df_exibicao), # <--- Mudamos a função aqui!
+                        data=gerar_excel_pagamentos(df_exibicao),
                         file_name="relatorio_pagamentos_brasicor.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True 
