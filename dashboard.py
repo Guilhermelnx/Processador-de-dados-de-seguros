@@ -3,7 +3,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from src.modules.processador import ProcessadorDados
 from src.modules.leitores import LeitorAllianz, LeitorBradescoSaude
 from src.modules.leitores.yelum import LeitorYelum
+from src.modules.leitores.bradesco_vida import LeitorBradescoVida
 from src.modules.leitores.suhai import LeitorSuhai
+from src.modules.leitores.chubb import LeitorChubb
 from src.utils.exportador import gerar_excel_memoria, gerar_excel_pagamentos
 
 st.set_page_config(layout="wide", page_title="App A12 - Comissões")
@@ -16,17 +18,21 @@ st.title("Análise de Comissões e Prêmios 📊")
 LEITORES_DISPONIVEIS = {
     "Allianz": LeitorAllianz,
     "Bradesco Saúde": LeitorBradescoSaude,
+    "Bradesco Vida": LeitorBradescoVida,
     "Yelum": LeitorYelum,
     "Suhai": LeitorSuhai,
+    "Chubb": LeitorChubb,
+    
 }
 
 # ==========================================
 # BARRA LATERAL (SIDEBAR)
 # ==========================================
 st.sidebar.title("1. Importar Dados 📁")
-
-arquivo_upload = st.sidebar.file_uploader("Suba a planilha de apuração", type=["xlsx", "xls"])
-
+arquivo_upload = st.sidebar.file_uploader(
+    "Drag and drop file here", 
+    type=["xlsx", "xls", "xlsm", "xlsb", "csv"]
+)
 # O Streamlit lê as chaves do dicionário automaticamente para criar a caixinha
 seguradora_escolhida = st.sidebar.selectbox("Selecione a Seguradora", list(LEITORES_DISPONIVEIS.keys()))
 

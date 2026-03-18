@@ -21,10 +21,10 @@ def calcular_repasses_corretagem(df_entrada):
         df['CORRETORA PRINCIPAL'].str.contains('M2', case=False, na=False)
     )
     
-    # Procura pela palavra exata PARTNER A12+ (O \+ é para o Python entender o sinal de mais)
+    # MELHORIA: Agora pega qualquer variação (A12+, A12 CORPORATE, PARTNER A12+)
     eh_partner_a12 = (
-        df['CORRETOR'].str.contains('PARTNER A12\+', case=False, na=False) | 
-        df['CORRETORA PRINCIPAL'].str.contains('PARTNER A12\+', case=False, na=False)
+        df['CORRETOR'].str.contains('A12\+|A12 CORPORATE', case=False, regex=True, na=False) | 
+        df['CORRETORA PRINCIPAL'].str.contains('A12\+|A12 CORPORATE', case=False, regex=True, na=False)
     )
 
     # ==========================================
@@ -34,12 +34,9 @@ def calcular_repasses_corretagem(df_entrada):
     df.loc[eh_grupo_m2, 'Repasse A12'] = comissao_real * 0.70
     df.loc[eh_grupo_m2, 'Base Corretora'] = comissao_real * 0.30
     
-    # Exceção B: PARTNER A12+ (A exata fórmula do Excel que você printou)
-    # Primeiro o SOL (Comissão dividida por 12)
+    # Exceção B: Família A12
     df.loc[eh_partner_a12, 'Repasse SOL'] = comissao_real / 12
-    # Depois a A12 (Comissão - SOL)
     df.loc[eh_partner_a12, 'Repasse A12'] = comissao_real - df.loc[eh_partner_a12, 'Repasse SOL']
-    # Corretora fica com zero
     df.loc[eh_partner_a12, 'Base Corretora'] = 0
 
     # ==========================================
@@ -47,9 +44,8 @@ def calcular_repasses_corretagem(df_entrada):
     # ==========================================
     df['Valor p/ Corretora'] = df['Base Corretora'] - df['Repasse SOL']
     
-    # Trava de segurança: Se o valor da corretora for negativo (como na PARTNER A12+ que zerou), 
-    # a gente não cobra imposto negativo (que daria dinheiro de volta do governo kkkk)
-    df['Valor p/ Corretora'] = df['Valor p/ Corretora'].clip(lower=0)
+    # REMOVIDO: A trava .clip(lower=0) foi retirada! 
+    # Agora valores negativos compensam os positivos corretamente na soma final.
     
     df['Impostos Retidos'] = df['Valor p/ Corretora'] * 0.19
     df['Lucro Líquido Pago'] = df['Valor p/ Corretora'] - df['Impostos Retidos']
