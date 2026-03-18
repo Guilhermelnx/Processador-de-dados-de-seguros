@@ -29,7 +29,7 @@ Manipulação de Excel: OpenPyXL
 Estrutura: Arquitetura modular com classe de processamento (ProcessadorDados) isolada da camada de visualização.
 
 ⚙️ Como Executar
-Clone o repositório: git clone https://github.com/Guilhermelnx/seu-repositorio.git
+Clone o repositório: git clone https://github.com/Guilhermelnx/Processador-de-dados-de-seguros
 
 Instale as dependências: pip install -r requirements.txt
 
