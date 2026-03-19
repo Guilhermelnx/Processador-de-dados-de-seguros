@@ -1,40 +1,29 @@
 import pandas as pd
-from src.core.calculador import calcular_repasses_corretagem
-from src.modules.leitores import LeitorSeguradora
-
 
 class ProcessadorDados:
-    def __init__(self, arquivo_upload, nome_aba, leitor_estrategia: LeitorSeguradora):
-        self.arquivo = arquivo_upload
-        self.aba = nome_aba
-        
-        df_temporario = pd.read_excel(arquivo_upload, sheet_name=nome_aba)
-        
-       
-        self.df_bruto = leitor_estrategia.padronizar_dados(df_temporario)
-        
-        self.colunas_necessarias = ['RAMO', 'CORRETORA PRINCIPAL', 'CORRETOR', 'R$ PRÊMIO LÍQUIDO', 'R$ COMISSÃO']
-
-    @staticmethod
-    def listar_abas(arquivo_upload):
-        xls = pd.ExcelFile(arquivo_upload)
-        return xls.sheet_names
+    def __init__(self, arquivo_upload, aba_selecionada, leitor):
+        self.df_bruto = pd.read_excel(arquivo_upload, sheet_name=aba_selecionada)
+        self.df_bruto = leitor.padronizar_dados(self.df_bruto)
 
     def base_valida(self):
-        return all(coluna in self.df_bruto.columns for coluna in self.colunas_necessarias)
+        colunas_essenciais = ['RAMO', 'CORRETORA PRINCIPAL', 'CORRETOR', 'R$ PRÊMIO LÍQUIDO', 'R$ COMISSÃO']
+        for col in colunas_essenciais:
+            if col not in self.df_bruto.columns:
+                return False
+        return True
+
+    @staticmethod
+    def listar_abas(arquivo):
+        return pd.ExcelFile(arquivo).sheet_names
 
     def obter_listas_filtros(self):
-        df_base = self.df_bruto[self.colunas_necessarias]
-        ramos = ["Todos"] + list(df_base['RAMO'].dropna().unique())
-        corretores = ["Todos"] + list(df_base['CORRETOR'].dropna().unique())
-        principais = ["Todos"] + list(df_base['CORRETORA PRINCIPAL'].dropna().unique())
+        ramos = ["Todos"] + sorted(self.df_bruto['RAMO'].dropna().unique().tolist())
+        corretores = ["Todos"] + sorted(self.df_bruto['CORRETOR'].dropna().unique().tolist())
+        principais = ["Todos"] + sorted(self.df_bruto['CORRETORA PRINCIPAL'].dropna().unique().tolist())
         return ramos, corretores, principais
 
     def processar_tabela(self, ramo, corretor, principal):
-        df_filtrado = self.df_bruto[self.colunas_necessarias].copy()
-        
-        df_filtrado['R$ PRÊMIO LÍQUIDO'] = pd.to_numeric(df_filtrado['R$ PRÊMIO LÍQUIDO'], errors='coerce').fillna(0)
-        df_filtrado['R$ COMISSÃO'] = pd.to_numeric(df_filtrado['R$ COMISSÃO'], errors='coerce').fillna(0)
+        df_filtrado = self.df_bruto.copy()
         
         if ramo != "Todos":
             df_filtrado = df_filtrado[df_filtrado['RAMO'] == ramo]
@@ -43,5 +32,15 @@ class ProcessadorDados:
         if principal != "Todos":
             df_filtrado = df_filtrado[df_filtrado['CORRETORA PRINCIPAL'] == principal]
             
-        df_agrupado = df_filtrado.groupby(['RAMO', 'CORRETORA PRINCIPAL', 'CORRETOR']).sum().reset_index()
-        return calcular_repasses_corretagem(df_agrupado)
+        if df_filtrado.empty:
+            return df_filtrado
+            
+        # 🚨 A SALVAÇÃO ESTÁ AQUI: Ensinando o Agrupador a não apagar o PreCalc!
+        colunas_soma = ['R$ PRÊMIO LÍQUIDO', 'R$ COMISSÃO']
+        if 'Repasse SOL_PreCalc' in df_filtrado.columns:
+            colunas_soma.extend(['Repasse SOL_PreCalc', 'Repasse A12_PreCalc', 'Base Corretora_PreCalc'])
+            
+        resultado = df_filtrado.groupby(['RAMO', 'CORRETORA PRINCIPAL', 'CORRETOR'], as_index=False)[colunas_soma].sum()
+        
+        from src.core.calculador import calcular_repasses_corretagem
+        return calcular_repasses_corretagem(resultado)
