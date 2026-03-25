@@ -17,7 +17,7 @@ def calcular_repasses_corretagem(df_entrada):
         df['Repasse A12'] = comissao_real * 0.20
         df['Base Corretora'] = comissao_real * 0.80
 
-    # ==========================================
+   # ==========================================
     # 2. IDENTIFICAÇÃO DOS "DIFERENTÕES"
     # ==========================================
     eh_grupo_m2 = (
@@ -26,8 +26,8 @@ def calcular_repasses_corretagem(df_entrada):
     )
     
     eh_partner_a12 = (
-        df['CORRETOR'].str.contains('A12\+|A12 CORPORATE', case=False, regex=True, na=False) | 
-        df['CORRETORA PRINCIPAL'].str.contains('A12\+|A12 CORPORATE', case=False, regex=True, na=False)
+        df['CORRETOR'].str.contains('A12\+|A12 CORPORATE|A12 MAIS', case=False, regex=True, na=False) | 
+        df['CORRETORA PRINCIPAL'].str.contains('A12\+|A12 CORPORATE|A12 MAIS', case=False, regex=True, na=False)
     )
 
     # ==========================================
@@ -41,10 +41,15 @@ def calcular_repasses_corretagem(df_entrada):
         df.loc[eh_partner_a12, 'Repasse A12'] = comissao_real - df.loc[eh_partner_a12, 'Repasse SOL']
         df.loc[eh_partner_a12, 'Base Corretora'] = 0
 
-    # ==========================================
+   # ==========================================
     # 4. CÁLCULO FINAL DE IMPOSTOS E LUCRO
     # ==========================================
     df['Valor p/ Corretora'] = df['Base Corretora'] - df['Repasse SOL']
+    
+    # 🛡️ TRAVA DE SEGURANÇA: Ninguém tem lucro ou imposto negativo. 
+    # Se a corretora repassou 100% da comissão (ex: A12+), a base dela zera.
+    df['Valor p/ Corretora'] = df['Valor p/ Corretora'].clip(lower=0)
+
     df['Impostos Retidos'] = df['Valor p/ Corretora'] * 0.19
     df['Lucro Líquido Pago'] = df['Valor p/ Corretora'] - df['Impostos Retidos']
 

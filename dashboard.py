@@ -1,13 +1,21 @@
 import streamlit as st
 from decimal import Decimal, ROUND_HALF_UP
+
+# Importações dos Módulos Base
 from src.modules.processador import ProcessadorDados
+from src.utils.exportador import gerar_excel_memoria, gerar_excel_pagamentos
+
+# Importações dos Leitores (Dicionário Mágico)
 from src.modules.leitores import LeitorAllianz, LeitorBradescoSaude
 from src.modules.leitores.yelum import LeitorYelum
 from src.modules.leitores.bradesco_vida import LeitorBradescoVida
 from src.modules.leitores.bradesco_auto import LeitorBradescoAuto
 from src.modules.leitores.suhai import LeitorSuhai
 from src.modules.leitores.chubb import LeitorChubb
-from src.utils.exportador import gerar_excel_memoria, gerar_excel_pagamentos
+from src.modules.leitores.amil import LeitorAmil
+from src.modules.leitores.aruana import LeitorAurana
+from src.modules.leitores.darwin import LeitorDarwin
+from src.modules.leitores.hdi import LeitorHDI
 
 st.set_page_config(layout="wide", page_title="App A12 - Comissões")
 
@@ -22,6 +30,10 @@ LEITORES_DISPONIVEIS = {
     "Yelum": LeitorYelum,
     "Suhai": LeitorSuhai,
     "Chubb": LeitorChubb,
+    "Amil": LeitorAmil,
+    "Aruana": LeitorAurana,
+    "Darwin": LeitorDarwin,
+    "HDI": LeitorHDI,
 }
 
 # ==========================================
@@ -119,42 +131,33 @@ if arquivo_upload is not None:
     abas = ProcessadorDados.listar_abas(arquivo_upload)
     aba_selecionada = st.sidebar.selectbox("Selecione a aba correta:", abas)
     
-    try:
-        processador = ProcessadorDados(arquivo_upload, aba_selecionada, leitor)
+    processador = ProcessadorDados(arquivo_upload, aba_selecionada, leitor)
+    
+    if not processador.base_valida():
+        st.error("⚠️ As colunas não batem. Tem certeza que você selecionou a seguradora certa ali do lado?")
+    else:
+        st.sidebar.download_button(
+            label="📥 Baixar Base Limpa (Excel)",
+            data=gerar_excel_memoria(processador.df_bruto), 
+            file_name="base_padronizada.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
         
-        if not processador.base_valida():
-            st.error("⚠️ As colunas não batem. Tem certeza que você selecionou a seguradora certa ali do lado?")
+        st.sidebar.divider()
+        st.sidebar.header("2. Filtros de Pesquisa 🔍")
+        ramos, corretores, principais = processador.obter_listas_filtros()
+        filtro_ramo = st.sidebar.selectbox("Ramo", ramos)
+        filtro_corretor = st.sidebar.selectbox("Corretor", corretores)
+        filtro_principal = st.sidebar.selectbox("Corretora Principal", principais)
+
+        df_final = processador.processar_tabela(filtro_ramo, filtro_corretor, filtro_principal)
+
+        if df_final.empty:
+            st.warning("📭 Nenhum dado encontrado com esses filtros!")
         else:
-            st.sidebar.download_button(
-                label="📥 Baixar Base Limpa (Excel)",
-                data=gerar_excel_memoria(processador.df_bruto), 
-                file_name="base_padronizada.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-            st.sidebar.divider()
-            st.sidebar.header("2. Filtros de Pesquisa 🔍")
-            ramos, corretores, principais = processador.obter_listas_filtros()
-            filtro_ramo = st.sidebar.selectbox("Ramo", ramos)
-            filtro_corretor = st.sidebar.selectbox("Corretor", corretores)
-            filtro_principal = st.sidebar.selectbox("Corretora Principal", principais)
-
-            df_final = processador.processar_tabela(filtro_ramo, filtro_corretor, filtro_principal)
-
-            if df_final.empty:
-                st.warning("📭 Nenhum dado encontrado com esses filtros!")
-            else:
-                # O FLUXO PRINCIPAL AGORA É SÓ CHAMAR AS FUNÇÕES!
-                renderizar_kpis_financeiros(df_final, seguradora_escolhida)
-                st.markdown("---")
-                renderizar_graficos_e_exportacao(df_final)
-
-    except KeyError as erro_coluna:
-        st.error(f"🚨 Ops! A planilha parece estar diferente do esperado. Não encontrei a coluna: {erro_coluna}")
-        st.info("💡 Dica: Verifique se você selecionou a Seguradora correta na barra lateral e se é a aba certa da planilha.")
-    except Exception as erro_geral:
-        st.error("🚨 Ocorreu um erro inesperado ao processar a planilha.")
-        st.warning(f"Detalhe técnico para o suporte: {erro_geral}")
+            renderizar_kpis_financeiros(df_final, seguradora_escolhida)
+            st.markdown("---")
+            renderizar_graficos_e_exportacao(df_final)
 
 else:
     st.info("👆 Bem-vindo! Para começar, faça o upload da planilha de apuração no menu lateral.")
